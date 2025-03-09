@@ -1,0 +1,10 @@
+const mongoose = require('mongoose');
+
+const MemeSchema = new mongoose.Schema({
+  url: { type: String, required: true },
+  owner_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  votes: { type: Map, of: Number, default: {} }
+});
+
+const Meme = mongoose.model('Meme', MemeSchema);
+module.exports = Meme;
