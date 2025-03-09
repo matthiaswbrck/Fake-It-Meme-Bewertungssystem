@@ -1,0 +1,70 @@
+const axios = require('axios'); // Für Anfragen ans Lobbyregister
+const Meme = require('../models/Meme');
+const User = require('../models/User');
+
+// Meme bewerten
+const voteOnMeme = async (meme_id, user_id, vote) => {
+  try {
+    // 1️⃣ Spieler aus dem Lobbyregister prüfen
+    const lobbyResponse = await axios.get(`http://localhost:5000/lobby/getUser/${user_id}`);
+    if (!lobbyResponse.data) return { success: false, error: "Spieler nicht in der Lobby" };
+
+    // 2️⃣ Meme in der Datenbank suchen
+    const meme = await Meme.findById(meme_id);
+    if (!meme) return { success: false, error: "Meme nicht gefunden" };
+
+    // 3️⃣ Besitzer des Memes suchen (Ersteller)
+    const owner = await User.findById(meme.owner_id);
+    if (!owner) return { success: false, error: "Meme-Ersteller nicht gefunden" };
+
+    // 4️⃣ Prüfen, ob der User schon abgestimmt hat
+    if (meme.votes.has(user_id)) {
+      owner.points -= meme.votes.get(user_id); // Alte Bewertung entfernen
+    }
+
+    // 5️⃣ Neue Bewertung setzen
+    meme.votes.set(user_id, vote);
+    owner.points += vote;
+
+    // 6️⃣ Änderungen speichern
+    await meme.save();
+    await owner.save();
+
+    // 7️⃣ Live-Reaction per WebSocket senden
+    if (global.io) {
+      global.io.emit('voteUpdate', { meme_id, new_score: owner.points });
+    }
+
+    return { success: true, new_score: owner.points };
+  } catch (error) {
+    console.error("❌ Fehler bei der Bewertung:", error);
+    return { success: false, error: "Serverfehler", details: error.message };
+  }
+};
+
+// Rangliste abrufen
+const getLeaderboard = async () => {
+  try {
+    const leaderboard = await User.find().sort({ points: -1 }).limit(10);
+    return leaderboard;
+  } catch (error) {
+    console.error("❌ Fehler beim Abrufen der Rangliste:", error);
+    return { success: false, error: "Serverfehler", details: error.message };
+  }
+};
+
+// Meme-Download-Funktion
+const downloadMeme = async (req, res) => {
+  try {
+    const meme = await Meme.findById(req.params.meme_id);
+    if (!meme) return res.status(404).json({ error: "Meme nicht gefunden" });
+
+    const filePath = path.join(__dirname, '../uploads', meme.url);
+    res.download(filePath);
+  } catch (error) {
+    console.error("❌ Fehler beim Meme-Download:", error);
+    res.status(500).json({ error: "Serverfehler", details: error.message });
+  }
+};
+
+module.exports = { voteOnMeme, getLeaderboard, downloadMeme };
