@@ -1,0 +1,49 @@
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const connectDB = require('./Datenbank');
+const voteRoutes = require('./VotesRoutes');
+const { voteOnMeme } = require('./VoteController');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+
+// WebSockets global verfügbar machen
+global.io = io;
+
+// MongoDB verbinden
+connectDB();
+
+app.use(cors());
+app.use(express.json());
+app.use('/api', voteRoutes);
+
+// WebSockets für Live-Updates
+io.on('connection', (socket) => {
+  console.log('Ein Benutzer ist verbunden.');
+
+  socket.on('voteMeme', async (data) => {
+    try {
+      const result = await voteOnMeme(data.meme_id, data.user_id, data.vote);
+      if (result.success) {
+        io.emit('voteUpdate', { meme_id: data.meme_id, new_score: result.new_score });
+      }
+    } catch (error) {
+      console.error("Fehler bei der Bewertung:", error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Benutzer hat die Verbindung getrennt.');
+  });
+});
+
+// Server starten
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`✅ Server läuft auf Port ${PORT}`);
+});
