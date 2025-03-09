@@ -1,0 +1,17 @@
+const express = require('express');
+const router = express.Router();
+
+// Simulierter Lobby-Server (Hier wird später eine echte Datenbankverbindung benötigt)
+const lobbyRegister = {
+  "user123": { username: "MemeBrudi", lobbyId: "lobby1" },
+  "user456": { username: "DankMaster", lobbyId: "lobby1" }
+};
+
+// Spieler aus dem Lobby-Register holen
+router.get('/getUser/:user_id', (req, res) => {
+  const user = lobbyRegister[req.params.user_id];
+  if (!user) return res.status(404).json({ error: "Spieler nicht im Lobbyregister" });
+  res.json(user);
+});
+
+module.exports = router;
