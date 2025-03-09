@@ -1,0 +1,37 @@
+const express = require('express');
+const { voteOnMeme, getLeaderboard } = require('../VoteController');
+const router = express.Router();
+
+// Bewertung speichern
+router.post('/vote', async (req, res) => {
+  const { meme_id, user_id, vote } = req.body;
+  const result = await voteOnMeme(meme_id, user_id, vote);
+  res.json(result);
+});
+
+// Rangliste abrufen
+router.get('/leaderboard', async (req, res) => {
+  const result = await getLeaderboard();
+  res.json(result);
+});
+
+module.exports = router;
+const express = require('express');
+const Meme = require('../models/Meme');
+const router = express.Router();
+const path = require('path'); // Um Dateien zu senden
+
+// Meme herunterladen
+router.get('/download/:meme_id', async (req, res) => {
+  try {
+    const meme = await Meme.findById(req.params.meme_id);
+    if (!meme) return res.status(404).json({ error: "Meme nicht gefunden" });
+
+    const filePath = path.join(__dirname, '../uploads', meme.url);
+    res.download(filePath);
+  } catch (error) {
+    res.status(500).json({ error: "Serverfehler", details: error });
+  }
+});
+
+module.exports = router;
